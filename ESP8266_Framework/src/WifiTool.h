@@ -1,14 +1,19 @@
 #ifndef _WIFI_TOOL_
 #define _WIFI_TOOL_
 #include <defs.h>
+//#include <ESP8266FtpServer.h>
 
 extern "C" {
 #include "user_interface.h"
 }
 
+#define CRITICAL_BEGIN 	this->UserScheduler->DisableAllEvent();this->SysScheduler->DisableAllEvent();
+#define CRITICAL_END	this->UserScheduler->RestoreAllEvent();this->SysScheduler->RestoreAllEvent();
 extern void localSeconds();
+extern void TimeCorrection();
 typedef void (*httpFunction)();
 typedef void(*botCallBack)(void);
+
 
 int LogTimeEvent = 0;
 
@@ -24,16 +29,14 @@ void Diagnostic_Comunication()
 
 class WiFiTool{
 	private:
-		int _personalRootWebPage = 0;
-		WiFiMEM* wimem = NULL;
+		//int _personalRootWebPage = 0;
 		WiFiComunication* wificom = NULL; 
 		ESP8266_ScanNetwork *scan = NULL;
-		//botCallBack bCall=NULL;
 		Scheduler *SysScheduler=NULL;
 		Scheduler *UserScheduler=NULL;
-		//int Bot_mtbs = 1000; //mean time between scan messages
-		//long Bot_lasttime;
-		Drivers *drivers =NULL;;
+		Drivers *drivers =NULL;
+		JsonMan *_Config;
+		ManFS * _fs;
 #ifdef EN_BOT
 		TelegramBOT *teleBOT = NULL;
 #endif		   
@@ -49,240 +52,63 @@ class WiFiTool{
 
 		Service_NTP *sntp = NULL;
 		int WifiClient;
-		//const char* host = "OTA-LEDS";
-		
 	protected:
-		
+		int NtpEvent = -1;
 	public:
 		ESP8266WebServer *server= NULL;
-		
 		/*
-		 * This Routine(WebPage) save the system parameter on internal memory   
+		 * This Routine(WebPage) save the system parameter on Json
 		 */
-		void storeData(){     
-			/*
-			Set to default no NTP Server 
-			 */
-			this->wimem->SetNTP_ON(0);
-			for (uint8_t i=0; i<this->server->args(); i++){
-				if(this->server->argName(i)== "CLIENT_SSID")
-				{
-#ifdef _WIFI_DEBUG_
-					Serial.println("B_CLIENT_SSID");
-#endif
-					const int k = this->server->arg(i).length();
-					if(k>0){
-						char cSSID[k];
-						std::strcpy(cSSID,this->server->arg(i).c_str());      
-						this->wimem->SetClientSSID(cSSID);
-					}
-#ifdef _WIFI_DEBUG_
-					Serial.println("E_CLIENT_SSID");
-#endif
-				}
-				else if(this->server->argName(i)== "CLIENT_PWD")
-				{
-#ifdef _WIFI_DEBUG_
-					Serial.println("B_CLIENT_PWD");
-#endif
-					const int k = this->server->arg(i).length();
-					if(k>0){
-						char cPWD[k];
-						std::strcpy(cPWD,this->server->arg(i).c_str());      
-						this->wimem->SetClientPWD(cPWD);
-					}
-#ifdef _WIFI_DEBUG_
-					Serial.println("E_CLIENT_PWD");
-#endif
-				}
-				else if(this->server->argName(i)== "SERVER_PWD")
-				{
-#ifdef _WIFI_DEBUG_
-					Serial.println("B_SERVER_PWD");
-#endif
-					const int k = this->server->arg(i).length();
-					if(k>0){
-						char sPWD[k];
-						std::strcpy(sPWD,this->server->arg(i).c_str());      
-						this->wimem->SetServerPWD(sPWD);
-					}
-#ifdef _WIFI_DEBUG_
-					Serial.println("E_SERVER_PWD");
-#endif
-
-				}
-				else if(this->server->argName(i)== "SERVER_SSID")
-				{
-#ifdef _WIFI_DEBUG_
-					Serial.println("B_SERVER_SSID");
-#endif
-					const int k = this->server->arg(i).length();
-					if(k>0){
-						char sSSID[k];
-						std::strcpy(sSSID,this->server->arg(i).c_str());      
-						this->wimem->SetServerSSID(sSSID);
-					}
-#ifdef _WIFI_DEBUG_
-					Serial.println("E_SERVER_SSID");
-#endif
-				}
-				else if(this->server->argName(i)== "NTP")
-				{
-#ifdef _WIFI_DEBUG_
-					Serial.println("B_NTP");
-#endif
-					const int k = this->server->arg(i).length();
-					if(k>0){
-						char cNTP[k]; 
-						std::strcpy(cNTP,this->server->arg(i).c_str());      
-						this->wimem->SetNTP(cNTP);
-					}
-#ifdef _WIFI_DEBUG_
-					Serial.println("E_NTP");
-#endif
-			}
-			else if(this->server->argName(i)== "NTP_ON")
-			{						
-#ifdef _WIFI_DEBUG_
-					Serial.println("B_NTP_ON");
-#endif
-				const int k = this->server->arg(i).length();
-				if(k>0){
-					if(this->server->arg(i) == "On")
-					{this->wimem->SetNTP_ON(1);}
-					else
-					{this->wimem->SetNTP_ON(0);}
-				}
-#ifdef _WIFI_DEBUG_
-					Serial.println("E_NTP_ON");
-#endif
-			}							   
-			else if(this->server->argName(i)== "SERVER_PORT")
-			{
-#ifdef _WIFI_DEBUG_
-				Serial.println("B_SERVER_PORT");
-#endif
-				const int k = this->server->arg(i).length();
-				if(k>0){
-					char sSPORT[k];
-					std::strcpy(sSPORT,this->server->arg(i).c_str());        
-					uint16_t _sp = (uint16_t)atoi(sSPORT);
-					Serial.println(_sp);	
-					this->wimem->SetServerPort(_sp);
-				}
-#ifdef _WIFI_DEBUG_
-				Serial.println("E_SERVER_PORT");
-#endif
-			  
-			}
-			else if(this->server->argName(i)== "NTP_TIME_ZONE")
-			{
-#ifdef _WIFI_DEBUG_
-				Serial.println("B_NTP_TIME_ZONE");
-#endif
-				const int k = this->server->arg(i).length();
-				if(k>0){
-					char sNTPTZ[k];
-					std::strcpy(sNTPTZ,this->server->arg(i).c_str());        
-					int8_t _ntz = (int8_t)atoi(sNTPTZ);
-					Serial.println(_ntz);
-					this->wimem->SetNTP_Tyme_Zone(_ntz);
-				}
-#ifdef _WIFI_DEBUG_
-				Serial.println("E_NTP_TIME_ZONE");
-#endif
-			}
-			else if(this->server->argName(i)== "COMM_BAUD")
-			{
-#ifdef _WIFI_DEBUG_
-				Serial.println("B_COMM_BAUD"); 
-#endif
-				const int k = this->server->arg(i).length();
-				if(k>0){
-					char sCBAUD[k];
-					std::strcpy(sCBAUD,this->server->arg(i).c_str());  
-					uint32_t _cb = (uint32_t)atoi(&sCBAUD[0]);
-					this->wimem->SetCommBaud(_cb);
-				}
-#ifdef _WIFI_DEBUG_
-				Serial.println("E_COMM_BAUD");
-#endif
-			}
+		void storeData(){
+			String configuration=  this->server->arg("plain");
+			this->_fs->WriteFile("/config.json",configuration);
+			/*Force to Reboot*/
+			WiFi.forceSleepBegin(); wdt_reset(); ESP.restart(); while(1)wdt_reset();
 		}
-#ifdef _WIFI_DEBUG_
-		  Serial.println("END_PROCESS_DATA");
-#endif
-		  this->wimem->Save();
-		  
-		  delay(100);
-		  
-		   String out =  "<!DOCTYPE html><html><head><meta name='viewport' content='width=device-width, initial-scale=1'>";
-			out +="<style>#myProgress{position: relative;width: 100%;height: 30px;background-color: #ddd;}";
-			out += "#myBar{position: absolute;width: 1%;height: 100%;background-color: #0000ff;}</style>";
-			out +="</head><body style='max-width:1440px'><center><h1>" + String(SAVE_AND_REBOOT) + "</h1><div id='myProgress'><div id='myBar'></div>";
-			out +="</div><br></center><script>var elem = document.getElementById('myBar');var width = 1;";
-			out +="var id = setInterval(frame, 70);function frame(){if(width >= 100){clearInterval(id);";
-			out +="window.location = './';}else{width++;elem.style.width = width + '%';}}</script></body></html>";
-			this->server->send(200, "text/html", out);
-			delay(200);
-			system_restart();
-		 }
-		/*
-		 * This routine handle web page not Found
-		 * */
-		void handleNotFound(){
-			String message = NO_WEB_PAGE;
-			message += "URI: ";
-			message += this->server->uri();
-			message += "\nMethod: ";
-			message += (this->server->method() == HTTP_GET)?"GET":"POST";
-			message += "\nArguments: ";
-			message += this->server->args();
-			message += "\n";
-			for (uint8_t i=0; i<this->server->args(); i++){
-				message += " " + this->server->argName(i) + ": " + this->server->arg(i) + "\n";
-			}
-			this->server->send(404, "text/plain", message);  
+		void SaveFile(String fName,String fData){
+			this->_fs->WriteFile(fName,fData);
 		}
-		/*
-		 * This is the default web Pages cutomizable to the external class
+		String ReadFile(String fName){
+			return this->_fs->ReadFile(fName);
+		}
+		 /*
+		 * This routine handle web page on SPIFFS
 		 * */
-		void itWork() {  
-		  
-			int m = 0 ; int h = 0 ; int s = 0; String ntp = "";
-			if(this->sntp!=NULL){
-				m = this->sntp->GetLTZMinutes();
-				h = this->sntp->GetLTZHours();
-				s = this->sntp->GetLTZSeconds();
-				ntp = this->sntp->GetNTPServer();
+		void PageFS(){
+			PageFS(this->server->uri());
+		}
+		void PageFS(String pName){
+			if( pName == "/scanData"){
+				CRITICAL_BEGIN
+				String sNets=  this->scan->EnumNetwork();
+				this->_fs->WriteFile("/scanData.json",sNets);
+				this->server->send(200, "text/html", sNets.c_str());  
+				CRITICAL_END
 			}
-			char tmp[800 + 17 ];   
-			memset(tmp,0,800 + 17); 
-			sprintf ( tmp,
-			  "<html><head>\
-			   <META HTTP-EQUIV='refresh' CONTENT=3>\
-			  <title>ESP8266 device OK</title>\
-			  <meta name='viewport' content='width=device-width, initial-scale=1'><style>\
-			   body { background-color: #FFFFFF; font-family: Arial, Helvetica, Sans-Serif; Color: #000000; }\
-			  </style></head><body  style='max-width:1440px'>\
-			  <br><br><br><br>\
-			  <CENTER>\
-			  <br>ESP8266 Device information\
-			  <br>Device MAC:%s\
-			  <br>Ntp Server %s\
-			  <br>Time %i:%i:%i\
-			  <br><H1>It Work!</H1>\
-			  <br><a href='./manager' class='button'>Settings</a>\
-			  </CENTER>\
-			  </body>\
-			  </html>",this->wificom->MAC_char,ntp.c_str(),h,m,s);
-			  
-			this->server->send(200, "text/html", tmp);
+			else if(this->_fs->ExistFile(pName)==1){
+				if(this->server->method() == HTTP_GET){
+					String message = this->_fs->ReadFile(pName);
+					this->server->send(200, "text/html", message.c_str());  
+				}else{
+					String message = this->_fs->ReadFile(pName);
+					this->server->send(200, "text/html", message.c_str());  
+				}
+			}else{
+				String message = NO_WEB_PAGE;
+				message += "URI: ";
+				message += this->server->uri();
+				message += "\nMethod: ";
+				message += (this->server->method() == HTTP_GET)?"GET":"POST";
+				message += "\nArguments: ";
+				message += this->server->args();
+				message += "\n";
+				for (uint8_t i=0; i<this->server->args(); i++){
+					message += " " + this->server->argName(i) + ": " + this->server->arg(i) + "\n";
+				}
+				this->server->send(404, "text/plain", message);  
+			}
 		}
 		
-		/*
-		 * THis routine/webpage create javascript for Amministrative Page
-		 * */
 		String SystemInformation()
 		{
 			String tmp;
@@ -291,126 +117,228 @@ class WiFiTool{
 			tmp += "Chip speed:       " + String(ESP.getFlashChipSpeed())+" Hz.\n";
 			return tmp;
 		}
-		void JavaScripter()
+		int strToInt (const char str[])
 		{
-			String tmp;
-			if (this->wimem->GetCRCError() == 1)
-			{
-				tmp = "var data = {MAC:'" + String(this->wificom->MAC_char) + "',SERVER_SSID:'ESP8266"; 
-				tmp += String(this->wificom->MAC_char) + "',SERVER_PWD:'";
-				tmp += String(this->wificom->MAC_char) + "',SERVER_PORT:'80',CLIENT_PWD:'',NTP:'ntp1.inrim.it'};";
-			}else{
-				tmp = "var data = {MAC:'" + String(this->wificom->MAC_char) + "',SERVER_SSID:'" + String(this->wimem->GetServerSSID()); 
-				tmp += "',SERVER_PWD:'" + String(this->wimem->GetServerPWD()) + "',SERVER_PORT:'" +  String(this->wimem->GetServerPort());
-				tmp += "',CLIENT_PWD:'" + String(this->wimem->GetClientPWD()) + "',NTP:'" + String(this->wimem->GetNTP())  + "'};";
-					
-			}
-			tmp += "var aSSID=[' '," + this->scan->EnumNetwork() + "];";
-			tmp += "var aLTZ =['+12','+11','+10','+09','+08','+07','+06','+05','+04','+03','+02','+01','00','-01','-02','-03','-04','-05','-06','-07','-08','-09','-10','-11','-12'];";
-			tmp += "var aNTP =['On','Off'];";
-			
-			if (this->wimem->GetCRCError() == 1)
-			{
-				tmp +="var currentSSID =' ';var currentTZ='+01';var currentNTP_SEL = 'On';";
-			}else{
-				int8_t x = this->wimem->GetNTPTymeZone();
-				int8_t abs_x = (x + (x >> 8)) ^ (x >> 8);
-				if ( abs_x >= 10)
-				{
-					tmp += "var currentTZ='" + (x >= 0 ? String("+"):(String("-")) + String(abs_x)) + "';";
-				}
-				else
-				{
-					tmp += "var currentTZ='" + (x >= 0 ? String("+0"):(String("-0")) + String(abs_x)) + "';";
-				}
-				tmp +="var currentSSID ='" + String(this->wimem->GetClientSSID()) + "';";
-				tmp +="var currentNTP_SEL ='" +  (1 == (int)this->wimem->GetNTP_ON() ? String("On") :  String("Off"))   + "';";
-			}
-
-			tmp +="var inputs = Array.prototype.slice.call(document.querySelectorAll('form input'));";
-			tmp +="Object.keys(data).map(function (dataItem){";
-			tmp +="inputs.map(function (inputItem){return (inputItem.name === dataItem) ? (inputItem.value = data[dataItem]) : false;});});";
-			tmp +="selectCS = document.getElementById('CLIENT_SSID');";
-			tmp +="for( _SSID in aSSID ){selectCS.add(new Option(aSSID[_SSID]));};";
-			tmp +="selectCS.value = currentSSID;selectNTP = document.getElementById('NTP_TIME_ZONE');";
-			tmp +="for( _LTZ in aLTZ ){selectNTP.add( new Option( aLTZ[_LTZ]));};selectNTP.value = currentTZ;";
-			tmp +="selectNTP_CB = document.getElementById('NTP_ON');for( _NTP in aNTP ){selectNTP_CB.add( new Option( aNTP[_NTP]));};";
-			tmp +="selectNTP_CB.value = currentNTP_SEL;";
-			tmp +="function LoadDefaultData(){";
-			tmp +="var data = {MAC:'" + String(this->wificom->MAC_char) + "',SERVER_SSID:'ESP8266" + String(this->wificom->MAC_char) + "',SERVER_PWD:'" + String(this->wificom->MAC_char) +  "',SERVER_PORT:'80',CLIENT_PWD:'',NTP:'ntp1.inrim.it'};";
-			tmp +="var inputs = Array.prototype.slice.call(document.querySelectorAll('form input'));Object.keys(data).map(function(dataItem){";
-			tmp +="inputs.map(function (inputItem){return (inputItem.name === dataItem) ? (inputItem.value = data[dataItem]) : false;});});}";	
-			tmp +="document.getElementById('body').style.opacity='100';";
-			tmp +="document.getElementById('msg').style.opacity='0';";		 
-			this->server->send( 200, "text/javascript; charset=UTF-8", tmp);
-			delay(200);
-			
+			int i, result = 0;
+			int negative;
+			if (str[0] == '-'){negative = 1;}else{negative = 0;}
+			if (atoi(&str[1]) > 0){result = atoi(&str[1]);}else{result = atoi(&str[2]);}
+			if (negative == 1){result = result*(-1);}else{result = result;}
+			return result;
 		}
 		
-		/*
-		 * THis routine/webpage create HTML with reboot
-		 * */
-		void deviceReboot() {    
-			String out =  "<!DOCTYPE html><html><head><meta name='viewport' content='width=device-width, initial-scale=1'>";
-				out +="<style>#myProgress{position: relative;width: 100%;height: 30px;background-color: #ddd;}";
-				out += "#myBar{position: absolute;width: 1%;height: 100%;background-color: #0000ff;}</style>";
-				out +="</head><body style='max-width:1440px'><center><h1>Reboot</h1><div id='myProgress'><div id='myBar'></div>";
-				out +="</div><br></center><script>var elem = document.getElementById('myBar');var width = 1;";
-				out +="var id = setInterval(frame, 150);function frame(){if(width >= 100){clearInterval(id);";
-				out +="window.location = './';}else{width++;elem.style.width = width + '%';}}</script></body></html>";
-			this->server->send(200, "text/html", out);
-			
-			system_restart();
+		//format bytes
+		String formatBytes(size_t bytes) {
+		  if (bytes < 1024) {
+			return String(bytes) + "B";
+		  } else if (bytes < (1024 * 1024)) {
+			return String(bytes / 1024.0) + "KB";
+		  } else if (bytes < (1024 * 1024 * 1024)) {
+			return String(bytes / 1024.0 / 1024.0) + "MB";
+		  } else {
+			return String(bytes / 1024.0 / 1024.0 / 1024.0) + "GB";
+		  }
 		}
 		
-		/*
-		 * THis routine/webpage create HTML device manager
-		 * */
-		void deviceManager() {    
+		String getContentType(String filename) {
+			if (this->server->hasArg("download")) return "application/octet-stream";
+			else if (filename.endsWith(".htm")) return "text/html";
+			else if (filename.endsWith(".html")) return "text/html";
+			else if (filename.endsWith(".css")) return "text/css";
+			else if (filename.endsWith(".js")) return "application/javascript";
+			else if (filename.endsWith(".json")) return "application/json";
+			else if (filename.endsWith(".png")) return "image/png";
+			else if (filename.endsWith(".gif")) return "image/gif";
+			else if (filename.endsWith(".jpg")) return "image/jpeg";
+			else if (filename.endsWith(".ico")) return "image/x-icon";
+			else if (filename.endsWith(".xml")) return "text/xml";
+			else if (filename.endsWith(".pdf")) return "application/x-pdf";
+			else if (filename.endsWith(".zip")) return "application/x-zip";
+			else if (filename.endsWith(".gz")) return "application/x-gzip";
+			return "text/plain";
+		}
 
-			String out =  "<html><head><title>ESP8266 device information</title>";
-			out += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
-			out += "<style>body{ background-color: #FFFFFF; font-family: Arial, Helvetica, Sans-Serif; Color: #0000FF;} #body{opacity:0;}</style>";			
-			out += "</head><body style='max-width:1440px'><br><CENTER>ESP8266 Device Configuration<br><br></CENTER>";
-			out += "<div id='msg' style='font-size:largest;'>Loading, please wait..</div><div id='body'>";
-			out += "<form action='./store' method='GET'><CENTER><TABLE>";
-			out += "<tr><td>Device MAC:</td><td><input type='textbox' name='MAC' readonly/></td></tr>";
-			out += "<tr><td>Wifi AP SSID</td><td><input type='textbox' name='SERVER_SSID'/></td></tr>";
-			out += "<tr><td>Wifi AP Password</td><td><input type='textbox' name='SERVER_PWD'/></td></tr>";
-			out += "<tr><td>Wifi AP Port</td><td><input type='number' pattern='[0-9]' name='SERVER_PORT'/></td></tr>";
-			out += "<tr><td>Wifi Client SSID</td><td><select id='CLIENT_SSID' name='CLIENT_SSID'/></td></tr>";
-			out += "<tr><td>Wifi Client Password</td><td><input type='textbox'name='CLIENT_PWD'/></td></tr>";
-			out += "<tr><td>NTP Server</td><td><input type='textbox' name='NTP'/></td></tr>";
-			out += "<tr><td>NTP time zone</td><td><select id='NTP_TIME_ZONE' name='NTP_TIME_ZONE' /></td></tr>";
-			out += "<tr><td>NTP</td><td><select id='NTP_ON' name='NTP_ON' ></select></td></tr>";
-			out += "</TABLE></CENTER><CENTER><br><input type='submit' value='Salva Modifiche'>";
-			out += "</form><input type='button' value='Annulla'></CENTER>";
-			out += "<CENTER><LABEl>Utility<LABEL></td><td>&nbsp;</td></tr>";
-#ifndef ESP_8266_01
-			out += "<CENTER><input type='button' value='Aggiorna Firmware' onclick='window.location =\"./update\";' style='width:350px'></<CENTER>";
+		bool handleFileRead(String path) {
+		  if (path.endsWith("/")) {
+			path += "index.htm";
+		  }
+		  String contentType = getContentType(path);
+		  String pathWithGz = path + ".gz";
+		  if (SPIFFS.exists(pathWithGz) || SPIFFS.exists(path)) {
+			if (SPIFFS.exists(pathWithGz)) {
+			  path += ".gz";
+			}
+			File file = SPIFFS.open(path, "r");
+			this->server->streamFile(file, contentType);
+			file.close();
+			return true;
+		  }
+		  return false;
+		}
+
+		void handleFileUpload() {
+		  CRITICAL_BEGIN
+		  String page=  this->server->arg("plain");
+		  const size_t bufferSize = JSON_OBJECT_SIZE(2) + JSON_OBJECT_SIZE(3) + JSON_OBJECT_SIZE(5) + JSON_OBJECT_SIZE(8) + 370;  
+		  DynamicJsonBuffer jsonBuffer(bufferSize);
+		  JsonObject& _jRoot = jsonBuffer.parseObject(page);
+		  String fname = _jRoot["fn"];
+		  String fdata = _jRoot["html"];
+		  this->_fs->WriteFile(fname,fdata);
+		  CRITICAL_END
+		}
+
+		void handleFileDelete() {
+		  if (this->server->args() == 0) {return this->server->send(500, "text/plain", "BAD ARGS");}
+		  String path = this->server->arg(0);
+		  //DBG_OUTPUT_PORT.println("handleFileDelete: " + path);
+		  if (path == "/") {return this->server->send(500, "text/plain", "BAD PATH");}
+		  if (!this->_fs->ExistFile(path)) {return this->server->send(404, "text/plain", "FileNotFound");}
+		  this->_fs->RemFile(path);
+		  this->server->send(200, "text/plain", "");
+		  path = String();
+		}
+
+		void handleFileCreate() {
+		  if (this->server->args() == 0) {return this->server->send(500, "text/plain", "BAD ARGS");}
+		  String path = this->server->arg(0);
+		  if (path == "/") {return this->server->send(500, "text/plain", "BAD PATH");}
+		  if (this->_fs->ExistFile(path)) {return this->server->send(500, "text/plain", "FILE EXISTS"); }
+		  File file = this->_fs->open(path, "w");
+		  if (file) {file.close();}
+		  else {return this->server->send(500, "text/plain", "CREATE FAILED");}
+		  this->server->send(200, "text/plain", "");
+		  path = String();
+		}
+
+		void handleFileList() {
+		  if (!this->server->hasArg("dir")) {
+			this->server->send(500, "text/plain", "BAD ARGS");
+			return;
+		  }
+		  String path = this->server->arg("dir");
+		  Serial.println("handleFileList: " + path);
+		  //DBG_OUTPUT_PORT.println("handleFileList: " + path);
+		  Dir dir = this->_fs->openDir(path);
+		  path = String();
+		  String output = "[";
+		  while (dir.next()) {
+			File entry = dir.openFile("r");
+			if (output != "[") {
+			  output += ',';
+			}
+			bool isDir = false;
+			output += "{\"type\":\"";
+			output += (isDir) ? "dir" : "file";
+			output += "\",\"name\":\"";
+			output += String(entry.name()).substring(1);
+			output += "\"}";
+			entry.close();
+		  }
+		  output += "]";
+		  Serial.println("handleFileList: " + output);
+		  this->server->send(200, "text/json", output);
+		}
+		void ApplyConfigNTP(){
+			int ConfStat = this->_Config->beginFile();
+			int cNTPOn = 0;
+			int cNtpTZ = 0;
+			String cNTP = "" ;
+			if(this->WifiClient == WIFI_CLIENT){
+				if(ConfStat==1){
+					cNTP = this->_Config->GetStringByField("NTP");
+					cNTPOn = (this->_Config->GetStringByField("NTP_ON")=="On"?1:0);
+					cNtpTZ = strToInt(this->_Config->GetStringByField("NTP_TIME_ZONE").c_str());
+				}
+				if(cNTPOn==1){
+					Serial.printf("ntp %i\n",cNTPOn);
+					this->sntp = new Service_NTP(cNTP);
+					this->sntp->SetLocalTimeZone(cNtpTZ);
+					this->NtpEvent = this->SysScheduler->AddEvent((void*)localSeconds,60000);
+					localSeconds();
+					localSeconds();
+					localSeconds();
+				}else{
+					if(this->NtpEvent !=-1)
+					{
+						this->SysScheduler->RemoveEvent(this->NtpEvent);
+					}
+				}
+				
+			}
+		}
+		void ApplyConfig(){
+			int ConfStat = this->_Config->beginFile();
+			int cServerPort = -1;
+			String cServerMAC = "";
+			String cServerSSID = ""; 
+			String cServerPWD = "";
+			String cClientSSID = "";
+			String cClientPWD = "" ;
+			
+			if(ConfStat==1){
+				cServerPort = this->_Config->GetIntByField("SERVER_PORT");
+				cServerMAC = this->_Config->GetStringByField("MAC");
+				cServerSSID = this->_Config->GetStringByField("SERVER_SSID");
+				cServerPWD = this->_Config->GetStringByField("SERVER_PWD");
+				cClientSSID = this->_Config->GetStringByField("CLIENT_SSID");
+				cClientPWD = this->_Config->GetStringByField("CLIENT_PWD");
+			}
+			if(ConfStat==0){
+				this->server = new ESP8266WebServer(WEB_PORT);
+			}else{
+				if((int)cServerPort<1)
+				{
+					this->server = new ESP8266WebServer(WEB_PORT);
+				}else{
+					this->server = new ESP8266WebServer(cServerPort);
+				}
+			}
+#ifdef _WIFI_DEBUG_
+			Serial.printf("SSID %s PWD %s\n",cClientSSID.c_str(),cClientPWD.c_str());  
 #endif
-			out += "<CENTER><input type='button' value='Load Default Configuration' onclick='LoadDefaultData();' style='width:350px'></<CENTER>";
-			out += "<CENTER><input type='button' value='Reboot' onclick='if(!confirm(\"Continuare?\")){window.location =\"./reboot\";}' style='width:350px'></<CENTER>";
-			out += "</CENTER><CENTER><PRE>" + this->SystemInformation() + "</PRE></CENTER></div></body><script type='text/javascript' src='./jscripter'></script>";
-			out += "</html>";			  
-			this->server->send(200, "text/html", out);
+			if(ConfStat==0){
+				this->wificom = new WiFiComunication((char*)cClientSSID.c_str(),(char*)cClientPWD.c_str());
+				String jData = "{MAC:'" + String(this->wificom->MAC_char) 
+							+ "',SERVER_SSID:'ESP8266" + String(this->wificom->MAC_char) 
+							+ "',SERVER_PWD:'" + String(this->wificom->MAC_char) 
+							+ "',SERVER_PORT:'80',CLIENT_SSID:'',CLIENT_PWD:'',NTP:'ntp1.inrim.it',NTP_ON:0,NTP_TZ:0}";
+				this->_Config->beginJsonData(jData);
+				
+			}
+			else
+			{
+				this->wificom = new WiFiComunication((char*)cClientSSID.c_str(),(char*)cClientPWD.c_str(),(char*)cServerSSID.c_str(),(char*)cServerPWD.c_str());
+			}
+			if(this->wificom->CreateWFClient() == ACCESS_POINT)
+			{         
+				this->WifiClient = ACCESS_POINT;       
+				this->WebServerRequests();
+				this->server->begin();
+			}
+			else 
+			{
+				this->WifiClient = WIFI_CLIENT;
+				this->WebServerRequests();
+				this->SysScheduler->AddEvent((void*)Diagnostic_Comunication,60000);
+				this->ApplyConfigNTP();
+				this->server->begin();
+			}
 		}
-	
 	public:	
 		/*
 		 * Costructor overload  where choose if you want customize Root page
 		 * */
-		
-		WiFiTool():WiFiTool(0){
-		}
-		WiFiTool(int PersonalWebRoot /* 1 = YES ; 0 = NO */){
-			this->_personalRootWebPage = PersonalWebRoot;
+		WiFiTool(){
 			ESP.eraseConfig();
 			delay(500);
 			
 			WifiClient = ACCESS_POINT;
-
 			Serial.begin(_BAUD_);   
+			this->_Config = new JsonMan("/config.json");
+			this->_fs = new ManFS();
+			
+			
 #ifdef _WIFI_DEBUG_
 			Serial.println("#######################################################");
 			Serial.println("Esp8266 Framework by Francesco De lucia ver 0.180102");
@@ -420,10 +348,10 @@ class WiFiTool{
 			Serial.println("#define _WIFIMEM_DEBUG_");
 			Serial.println("#define _WIFI_DEBUG_");
 			Serial.println("#define _NTP_DEBUG_\n");
+			Serial.println("#define _SPIFFS_DEBUG_\n");
 			Serial.println("on file defs.h");
 			Serial.println("#######################################################");  
-#endif	
-			this->wimem = new WiFiMEM(); 
+#endif	 
 #ifndef ESP_8266_01
 			this->httpUpdater = new ESP8266HTTPUpdateServer();
 #endif
@@ -434,91 +362,30 @@ class WiFiTool{
 			this->scan = new ESP8266_ScanNetwork();
 			this->drivers = new Drivers();
 			this->drivers->InitDriver();
-			if(this->wimem->GetCRCError() == 1)
-			{
-				this->server = new ESP8266WebServer(WEB_PORT);
-			}
-			else
-			{
-				if((int)this->wimem->GetServerPort()<1)
-				{
-					this->server = new ESP8266WebServer(WEB_PORT);
-				}else{
-					this->server = new ESP8266WebServer((int)this->wimem->GetServerPort());
-				}
-			}
-#ifdef _WIFI_DEBUG_
-			Serial.printf("SSID %s PWD %s\n",this->wimem->GetClientSSID(),this->wimem->GetClientPWD());  
-#endif
-			if(this->wimem->GetCRCError() == 1)
-			{
-				this->wificom = new WiFiComunication(this->wimem->GetClientSSID(),this->wimem->GetClientPWD());
-			}
-			else
-			{
-				this->wificom = new WiFiComunication(this->wimem->GetClientSSID(),this->wimem->GetClientPWD(),
-					this->wimem->GetServerSSID(),this->wimem->GetServerPWD());
-			}
-			if(this->wificom->CreateWFClient() == ACCESS_POINT)
-			{         
-				this->WifiClient = ACCESS_POINT;       
-				if ( this->_personalRootWebPage == 0 )
-				{ 
-					this->server->on("/", [this](){itWork();});
-				}
-				this->server->on("/store", [this](){this->storeData();});
-				this->server->on("/reboot", [this](){this->deviceReboot();});
-				this->server->on("/jscripter", [this](){this->JavaScripter();});
-				this->server->on("/manager", [this](){this->deviceManager();});
-				this->server->onNotFound([this](){handleNotFound();});
-#ifndef ESP_8266_01				
-				this->httpUpdater->setup(this->server);				
-#endif
-				/**Serial.printf("ntp %i\n",wimem->GetNTP_ON());
-				if(this->wimem->GetNTP_ON()==1){
-					this->sntp = new Service_NTP(this->wimem->GetNTP());
-				}*/
-				this->server->begin();
-			}
-			else //if(wificom->CreateWFClient() == 0)
-			{
-				this->WifiClient = WIFI_CLIENT;
-				if ( this->_personalRootWebPage == 0 )
-				{ 
-					this->server->on("/",[this](){itWork();});
-				}
-				this->server->on("/store", [this](){storeData();});
-				this->server->on("/reboot", [this](){this->deviceReboot();});
-				this->server->on("/jscripter", [this](){this->JavaScripter();});
-				this->server->on("/manager", [this](){this->deviceManager();});
-
-				this->server->onNotFound([this](){handleNotFound();});	
-#ifndef ESP_8266_01				
-				this->httpUpdater->setup(this->server);				
-#endif			
-				this->SysScheduler->AddEvent((void*)Diagnostic_Comunication,60000);
-				
-				Serial.printf("ntp %i\n",wimem->GetNTP_ON());
-				
-				if(this->wimem->GetNTP_ON()==1){
-					this->sntp = new Service_NTP(this->wimem->GetNTP());
-					this->sntp->SetLocalTimeZone((int)this->wimem->GetNTPTymeZone());
-					this->SysScheduler->AddEvent((void*)localSeconds,1000);
-				}
-				this->server->begin();
-			}	
+			
+			this->ApplyConfig();
+			
 		}
-		void AddWebRoot(void* callbackWebRoutine) {			
-			if(this->_personalRootWebPage==1)
-			{			
-				this->server->on("/",(void(*)())callbackWebRoutine);	
-			}
+		void WebServerRequests(){
+			this->server->on("/",[this](){PageFS("/index.htm");});
+			this->server->on("/store", [this](){storeData();});
+			this->server->on("/reboot", [this](){PageFS("/reboot.htm"); WiFi.forceSleepBegin(); wdt_reset(); ESP.restart(); while(1)wdt_reset();});
+			this->server->on("/list", HTTP_GET, [this](){handleFileList();});
+			this->server->on("/edit", HTTP_GET, [this]() {
+				if (!handleFileRead("/edit.html")) {this->server->send(404, "text/plain", "FileNotFound");}
+			});
+			this->server->on("/edit", HTTP_PUT, [this](){handleFileCreate();} );
+			this->server->on("/edit", HTTP_DELETE, [this](){handleFileDelete();} );
+			this->server->on("/edit",HTTP_POST, [this](){handleFileUpload();});
+			this->server->onNotFound([this](){PageFS();});
+#ifndef ESP_8266_01
+				this->httpUpdater->setup(this->server);
+#endif			
+		}
+		void AddWebPage(void* callbackWebRoutine,char* webpagename) {
+			this->server->on(webpagename,(void(*)())callbackWebRoutine);
 		} 
-		void AddWebPage(void* callbackWebRoutine,char* webpagename) {						
-			this->server->on(webpagename,(void(*)())callbackWebRoutine);	
-		} 
-		
-		void AddPostData(void* callbackWebRoutine,char* webpagename) {									
+		void AddPostData(void* callbackWebRoutine,char* webpagename) {
 			this->server->on(webpagename, HTTP_POST,(void(*)())callbackWebRoutine);
 		} 
 		void SetLocalTimeZone(int ltz)
@@ -537,29 +404,48 @@ class WiFiTool{
 		}
 		char* GetClientSSID()
 		{
-			return this->wimem->GetClientSSID();
+			
+			return (char*)this->_Config->GetStringByField("CLIENT_SSID").c_str();
 		}
 		char* GetServerSSID()
 		{
-			return this->wimem->GetServerSSID();
+			return (char*)this->_Config->GetStringByField("SERVER_SSID").c_str();
 		}
 		int GetUTCMinutes(){
-			return this->sntp->GetUTCMinutes();
+			if(this->sntp != NULL){
+				return this->sntp->GetUTCMinutes();
+			}
+			return 0;
 		}
 		int GetUTCHours(){
-			return this->sntp->GetUTCHours();
+			if(this->sntp != NULL){
+				return this->sntp->GetUTCHours();
+			}
+			return 0;
 		}
 		int GetUTCSeconds(){
-			return this->sntp->GetUTCSeconds();
+			if(this->sntp != NULL){
+				return this->sntp->GetUTCSeconds();
+			}
+			return 0;
 		}
 		int GetLTZMinutes(){
-			return this->sntp->GetLTZMinutes();
+			if(this->sntp != NULL){
+				return this->sntp->GetLTZMinutes();
+			}
+			return 0;
 		}
 		int GetLTZHours(){
-			return this->sntp->GetLTZHours();
+			if(this->sntp != NULL){
+				return this->sntp->GetLTZHours();
+			}
+			return 0;
 		}
 		int GetLTZSeconds(){
-			return this->sntp->GetLTZSeconds();
+			if(this->sntp != NULL){
+				return this->sntp->GetLTZSeconds();
+			}
+			return 0;
 		}
 		int IsWifiClient()
 		{
@@ -600,6 +486,7 @@ class WiFiTool{
 				this->drivers->poolingDriver();
 				this->SysScheduler->RunScheduler();
 				this->UserScheduler->RunScheduler();
+				TimeCorrection();
 			}
 		}
 		void s_print(char *msg)

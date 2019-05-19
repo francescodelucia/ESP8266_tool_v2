@@ -31,19 +31,7 @@ class WiFiComunication{
 		{ 
 			//wifi_set_phy_mode(PHY_MODE_11g);
 			this->isAP = ACCESS_POINT;	
-			memset(this->IPAdd,0,16);			
-		
-#ifdef _WIFICOM_DEBUG_
-			Serial.println(BASE_COSTRUCTOR);
-			Serial.printf("%s\n",this->MAC_char);
-#endif			
-			//sprintf(deviceName,"ESP8266%s\0",this->MAC_char);
-			//sprintf(devicePwd,"%s\0",this->MAC_char);
-#ifdef _WIFICOM_DEBUG_								
-			Serial.printf("MAC %s\n",this->MAC_char);					
-			Serial.printf("NAME %s\n",this->deviceName);					
-			Serial.printf("PWD %s\n",this->devicePwd);
-#endif
+			memset(this->IPAdd,0,16);
 		}
 		WiFiComunication( char *ssid,char *pwd,char *deviceName,char *devicePwd) : WiFiComunication()
 		{			
@@ -157,29 +145,29 @@ class WiFiComunication{
 			return WIFI_CLIENT;			
 		}
 		char* GetMAC()
-		{				
-			
-#ifdef _WIFICOM_DEBUG_				
-			Serial.println("1");													
+		{
+
+#ifdef _WIFICOM_DEBUG_
+			Serial.println("1");
 #endif		
 			uint8_t MAC_array[6];
 			
-#ifdef _WIFICOM_DEBUG_				
-			Serial.println("2");													
-#endif		
+#ifdef _WIFICOM_DEBUG_
+			Serial.println("2");
+#endif
 			WiFi.macAddress(MAC_array);
-#ifdef _WIFICOM_DEBUG_				
-			Serial.println("3");													
+#ifdef _WIFICOM_DEBUG_
+			Serial.println("3");
 #endif					
 			for (int i = 0; i < sizeof(MAC_array); ++i){
-#ifdef _WIFICOM_DEBUG_				
-				Serial.print("4-");										
-				Serial.println(i);										
+#ifdef _WIFICOM_DEBUG_
+				Serial.print("4-");
+				Serial.println(i);
 #endif		
 				sprintf(this->MAC_char,"%s%02x",this->MAC_char,MAC_array[i]);
 			}
-#ifdef _WIFICOM_DEBUG_				
-			Serial.println("5");															
+#ifdef _WIFICOM_DEBUG_
+			Serial.println("5");
 #endif		
 			return this->MAC_char;
 		}

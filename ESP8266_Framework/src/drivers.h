@@ -21,7 +21,7 @@ class Drivers {
 	  private:
 		Scheduler *driverScheduler;
 
-#if TELEGRAM_BOT == ENABLE
+#ifdef TELEGRAM_BOT
 		TelegramBOT *teleBOT;
 #endif
 	  public:
@@ -126,7 +126,7 @@ class Drivers {
 #endif
 		
 		}
-#if TELEGRAM_BOT == ENABLE
+#ifdef TELEGRAM_BOT
 		TelegramBOT* GetTelegramBot(String token, String name, String username, void* callbackRoutine)
 		{	
 			this->teleBOT = new TelegramBOT(token, name, username);

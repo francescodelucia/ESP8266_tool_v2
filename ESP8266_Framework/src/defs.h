@@ -4,15 +4,13 @@
 #define ENABLE		1
 #define DISABLE		0
 
-
-
-
 #include <macros.h>
 #include <devices/dht11.h>
 #include <devices/ht1632.h>
 #include <devices/LM75.h> 
 #include <devices/SSD1306.h> 
 #include <meteo.h>
+#include <ManFS.h>
 
 #define _BAUD_ 115200
 
@@ -20,6 +18,7 @@
 #define _WIFIMEM_DEBUG_
 #define _WIFI_DEBUG_
 #define _NTP_DEBUG_
+#define _SPIFFS_DEBUG_
 
 #define UDP_PORT 			2390 // local port to listen for UDP packets
 #define NTP_SERVER_			"0.it.pool.ntp.org"
@@ -28,11 +27,12 @@
 #define WEB_PORT 80
 #define ACCESS_POINT	1
 #define WIFI_CLIENT		0
-
+/*
 #ifndef TELEGRAM_BOT
 	#define TELEGRAM_BOT DISABLE
 #endif
-#if TELEGRAM_BOT == ENABLE 
+*/
+#ifdef TELEGRAM_BOT 
 	#define EN_BOT 
 	#include <ESP8266TelegramBOT.h>
 #endif 

@@ -35,7 +35,7 @@ class Scheduler{
 			this->scheduler[_ID_EVENT].ms_event = millisecond_event;
 			this->scheduler[_ID_EVENT].ms_event_last_run = millis();
 			this->scheduler[_ID_EVENT].enable = 1;
-			this->_ID_EVENT ++;			
+			this->_ID_EVENT ++;
 			return this->_ID_EVENT;
 		} 
 		int RemoveEvent(int ID_EVENT)
@@ -85,8 +85,10 @@ class Scheduler{
 		{			
 			if( pTask->cBackRoutine!=NULL)
 			{
-				if (millis() > pTask->ms_event_last_run + pTask->ms_event)  {
-					CallBackRoiutine cbr = (CallBackRoiutine)pTask->cBackRoutine;				
+				//if (millis() > pTask->ms_event_last_run + pTask->ms_event){
+				u_long ticks = millis() - pTask->ms_event_last_run;
+				if ( ticks >=  pTask->ms_event){
+					CallBackRoiutine cbr = (CallBackRoiutine)pTask->cBackRoutine;
 					cbr();
 					pTask->ms_event_last_run = millis();
 				}

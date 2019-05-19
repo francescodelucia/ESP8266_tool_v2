@@ -16,24 +16,24 @@ class ESP8266_ScanNetwork{
 		}
 		String EnumNetwork()
 		{
-			String out = "";
+			String out; // = "{\"nets\":[\"\",";
 			
 			// WiFi.scanNetworks will return the number of networks found
 			int n = WiFi.scanNetworks();
 			if (n == 0){
-				out = "'" + String(NO_NETWORKS) + "'";
+				out = "\"" + String(NO_NETWORKS) + "\"";
 			}
 			else
 			{	
 				out="";
 				for (int i = 0; i < n-1; ++i)
 				{
-					out+="'" + WiFi.SSID(i) + "',";					
+					out+="\"" + WiFi.SSID(i) + "\",";
 					delay(20);
 				}
-				out+="'" + WiFi.SSID(n-1) + "'";					
+				out+="\"" + WiFi.SSID(n-1) + "\"";
 			}
-			return out;
+			return ("{\"nets\":[\"\"," + out + "]}");
 		
 		}						
 };
