@@ -1,4 +1,4 @@
-# ESP8266_tool
+# ESP8266_tool_v2
 Framework for simple develop Wifi ESP8266 application with Arduino IDE.
 
 [API in WikiPage](https://github.com/francescodelucia/ESP8266_tool/wiki)
