@@ -1,0 +1,92 @@
+<html>
+	<head>
+		<title>ESP8266 device information</title>
+		<meta name='viewport' content='width=device-width, initial-scale=1'>
+		<style>
+			body{ background-color: #FFFFFF; font-family: Arial, Helvetica, Sans-Serif; Color: #0000FF;} #body{opacity:0;}
+		</style>
+		<link rel="stylesheet" type="text/css" href="ham_menu.css">
+	</head>
+	<body style='max-width:1440px'>
+		<nav role="navigation">
+			<div id="menuToggle">
+			<input type="checkbox" />
+			<span></span>
+			<span></span>
+			<span></span>
+			<ul id="menu">
+				<a href="#" onclick='window.location="./";'><li>Home</li></a>
+			  <a href="#" onclick='window.location="./update";'><li>Update Firmware</li></a>
+			  <a href="#" onclick='window.location="./edit";'><li>Editor</li></a>
+			  <a href="#" onclick='window.location="./triggers.html";'><li>Aggiungi Trigger</li></a>
+			</ul>
+			</div>
+		</nav>
+		<CENTER>ESP8266 Device Configuration<br><br></CENTER>
+		<div id='msg' style='font-size:largest;'>Loading, please wait..</div>
+		<div id='body'>
+			<form action='' method='GET' id="configuration">
+				<CENTER>
+					<TABLE>
+						<tr>
+							<td>Device MAC:</td>
+							<td><input type='textbox' name='MAC' readonly/></td>
+						</tr>
+						<tr>
+							<td>Wifi AP SSID</td>
+							<td><input type='textbox' name='SERVER_SSID'/></td>
+							</tr>
+						<tr>
+							<td>Wifi AP Password</td>
+							<td><input type='textbox' name='SERVER_PWD'/></td>
+						</tr>
+						<tr>
+							<td>Wifi AP Port</td>
+							<td><input type='number' pattern='[0-9]' name='SERVER_PORT'/></td>
+						</tr>
+						<tr>
+							<td>Wifi Client SSID</td>
+							<td><select id='CLIENT_SSID' name='CLIENT_SSID'/></td>
+						</tr>
+						<tr>
+							<td>Wifi Client Password</td>
+							<td><input type='textbox'name='CLIENT_PWD'/></td>
+						</tr>
+						<tr>
+							<td>NTP Server</td>
+							<td><input type='textbox' name='NTP'/></td>
+						</tr>
+						<tr>
+							<td>NTP time zone</td>
+							<td><select id='NTP_TIME_ZONE' name='NTP_TIME_ZONE' /></td>
+						</tr>
+						<tr>
+							<td>NTP</td>
+							<td><select id='NTP_ON' name='NTP_ON' ></select></td>
+						</tr>
+					</TABLE>
+				</CENTER></form>
+				<CENTER>
+					<br><input type='button' value='Salva Modifiche' onclick='if(confirm("L`operazione riavvia il dispositicvo\n\nContinuare?")){sendData()};' >
+				
+				<input type='button' value='Annulla'>
+				</CENTER><br>
+			<CENTER>
+				<LABEl>Utility<LABEL></td><td>&nbsp;</td></tr>
+				<CENTER><input type='button' value='Scan WIFI' onclick='ScanWIFI();' style='width:350px'></CENTER>
+				<CENTER><input type='button' value='Aggiorna Firmware' onclick='window.location ="./update";' style='width:350px'></<CENTER>
+				<CENTER><input type='button' value='Load Default Configuration' onclick='LoadDefaultData();' style='width:350px'></<CENTER>
+				<CENTER><input type='button' value='Reboot' onclick='if(confirm("Continuare?")){window.location ="./reboot";}' style='width:350px'></<CENTER>
+						
+			</CENTER>
+			<CENTER>
+				<PRE>
+Flash memory:     4194304 Bytes.
+Free heap memory: 34912 Bytes.
+Chip speed:       40000000 Hz.
+				</PRE>
+			</CENTER>
+		</div>
+		</body>
+		<script type='text/javascript' src='./jscripter.js'></script>
+</html>

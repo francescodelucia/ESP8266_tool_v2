@@ -1,0 +1,103 @@
+<html>
+  <head>
+  <meta name='viewport' content='width=device-width, initial-scale=1'>
+	<!--style>
+		input[type=\"text\"]{width: 90%; height: 3vh;}input[type=\"button\"]{width: 9%; height: 3.6vh;}.rxd{height: 90vh;}textarea{width: 99%; height: 100%; resize: none;}
+		h1 { font-size: 550%; }
+	</style-->
+	<link rel="stylesheet" type="text/css" href="ham_menu.css">
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.5.0/Chart.min.js"></script>
+	<script>
+		var Socket,Socket2,dataPlot;
+		var maxDataPoint = 25;
+		function removeData(){
+		  dataPlot.data.labels.shift();
+		  dataPlot.data.datasets[0].data.shift();
+		}
+		function addData(label,data){
+		  if(dataPlot.data.labels.length>maxDataPoint){removeData();}
+		  dataPlot.data.labels.push(label);
+		  dataPlot.data.datasets[0].data.push(data);
+		  dataPlot.update();
+		}
+		function getDataPointsFromCSV(csv) {
+	    var points;
+	    var csvLines = csv.split(/[\r?\n|\r|\n]+/);
+	    for (var i = 1; i < csvLines.length; i++) {
+		    if (csvLines[i].length > 0) {
+			    points = csvLines[i].split(",");
+			    addData(points[1],points[0]);
+		    }
+	    }
+	    dataPlot.render();
+    }
+    function httpGet(theUrl)
+    {
+      var xmlHttp = new XMLHttpRequest();
+      xmlHttp.open( "GET", theUrl, false ); // false for synchronous request
+      xmlHttp.send( null );
+      return xmlHttp.responseText;
+    }
+		function start() {
+			Socket = new WebSocket('ws://' + window.location.hostname + ':81/');
+			Socket2 = new WebSocket('ws://' + window.location.hostname + ':82/');
+			dataPlot = new Chart(document.getElementById('line-graph'), {
+			  type: 'line',
+			  options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            yAxes: [{
+              ticks: {
+                beginAtZero: true,
+                steps: 10,
+                stepValue: 6,
+                max: 100 //max value for the chart is 60
+              }
+            }]
+			    }
+        },
+			  data: {
+			   labels:[],
+			   datasets: [{
+			     data: [],
+			     label: "Peso (Kg)",
+			     borderColor: "#3e95cd",
+			     fill: false
+			   }]
+			  },
+			});
+			Socket.onmessage = function(evt) {
+			  var T = evt.data.split(",");
+			  document.getElementById('we').innerHTML = T[0];
+			  document.getElementById('we').innerHTML += "Kg";
+			  document.getElementById('clock').innerHTML = T[1];
+		  }
+		  Socket2.onmessage = function(evt) {
+		    console.log(evt.data);
+		    getDataPointsFromCSV(evt.data);
+		  }
+		}
+	</script>
+	</head>
+	<body onload='javascript:start();'>
+		<nav role="navigation">
+			<div id="menuToggle">
+			<input type="checkbox" />
+			<span></span>
+			<span></span>
+			<span></span>
+			<ul id="menu">
+			  <a href="#" onclick='window.location="./settings.htm";'><li>Settings</li></a>
+			  <a href="#" onclick='window.location="./update";'><li>Update Firmware</li></a>
+			  <a href="#" onclick='window.location="./edit";'><li>Editor</li></a>
+			  <a href="#" onclick='window.location="./triggers.html";'><li>Aggiungi Trigger</li></a>
+			</ul>
+			</div>
+		</nav>
+	<center ><h1 id='we'  onclick='if(confirm("Impostare la Tara?")){alert(httpGet("./tara"));}' >00</h1></center>
+	<div>
+	  <canvas id="line-graph" style="height:500px; width:300px"></canvas>
+	</div>
+	<center><h2 id='clock'>0.0.0</h2></center>
+</html>
